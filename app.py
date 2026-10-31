@@ -27,8 +27,9 @@ h1,h2,h3{font-family:'Fraunces',serif;color:#283f55}
 [data-testid='stSidebar'] [data-testid='stCaptionContainer']{color:#cbd6df!important}
 [data-testid='stMetric']{background:#fff;border:1px solid #dfe6ec;padding:16px;border-radius:16px;box-shadow:0 5px 18px rgba(35,59,83,.05)}
 [data-testid='stMetricLabel']{color:#687783}
-.stButton>button{background:#607d98;color:#fff;border-radius:11px;border:0;font-weight:700;transition:all .18s ease}
-.stButton>button:hover{background:#49667f;border:0;transform:translateY(-1px)}
+[data-testid='stButton'] button:not(:disabled),[data-testid='stDownloadButton'] button:not(:disabled){background:#405c75!important;color:#fff!important;border:1px solid #405c75!important;border-radius:11px;font-weight:700;opacity:1!important;transition:all .18s ease}
+[data-testid='stButton'] button:not(:disabled):hover,[data-testid='stDownloadButton'] button:not(:disabled):hover{background:#304a62!important;color:#fff!important;border-color:#304a62!important;transform:translateY(-1px)}
+[data-testid='stButton'] button:disabled,[data-testid='stDownloadButton'] button:disabled{background:#dce3e9!important;color:#4b5d6d!important;border:1px solid #cbd5de!important;border-radius:11px;font-weight:700;opacity:1!important}
 [data-testid='stTabs'] button{color:#536f88;font-weight:600}
 [data-testid='stTabs'] [aria-selected='true']{border-bottom-color:#927d91!important}
 [data-testid='stDataFrame'],[data-testid='stDataEditor']{border:1px solid #dfe6ec;border-radius:14px;overflow:hidden}
@@ -164,36 +165,34 @@ with criteria_tab:
     st.subheader("Scoring criteria")
     st.write("Set the buying team's priorities. Active weights must add up to 100% before a fair comparison can run.")
     criteria = db.get_criteria()
-    rules_column, mix_column = st.columns([1.8, 1], gap="large")
-    with rules_column:
-        editor = st.data_editor(criteria, hide_index=True, use_container_width=True,
-                                disabled=["criterion_id", "name"],
-                                column_config={
-                                    "criterion_id": st.column_config.NumberColumn("ID", width="small"),
-                                    "name": st.column_config.TextColumn("Criterion", width="medium"),
-                                    "description": st.column_config.TextColumn("What to look for", width="large"),
-                                    "weight": st.column_config.NumberColumn("Weight (%)", min_value=0, max_value=100, step=1),
-                                    "max_score": st.column_config.NumberColumn("Max score", min_value=1, max_value=100, step=1),
-                                    "is_active": st.column_config.CheckboxColumn("Active"),
-                                })
+    editor = st.data_editor(criteria, hide_index=True, use_container_width=True,
+                            disabled=["criterion_id", "name"],
+                            column_config={
+                                "criterion_id": st.column_config.NumberColumn("ID", width="small"),
+                                "name": st.column_config.TextColumn("Criterion", width="medium"),
+                                "description": st.column_config.TextColumn("What to look for", width="large"),
+                                "weight": st.column_config.NumberColumn("Weight (%)", min_value=0, max_value=100, step=1),
+                                "max_score": st.column_config.NumberColumn("Max score", min_value=1, max_value=100, step=1),
+                                "is_active": st.column_config.CheckboxColumn("Active"),
+                            })
     edited_rows = editor.to_dict("records") if hasattr(editor, "to_dict") else editor
     total = sum(float(row["weight"]) for row in edited_rows if row["is_active"])
-    with mix_column:
-        st.markdown("#### Weight mix")
-        st.caption("How much each active priority contributes to the final score.")
-        for row in edited_rows:
-            if row["is_active"]:
-                weight = max(0.0, min(100.0, float(row["weight"])))
-                name_col, value_col = st.columns([4, 1])
-                name_col.caption(row["name"])
-                value_col.caption(f"{weight:g}%")
-                st.progress(weight / 100)
-        st.metric("Active weight total", f"{total:g}%", delta="Ready" if abs(total - 100) < .01 else "Adjust to 100%")
-    with rules_column:
-        if st.button("Save scoring rules"):
+    total_col, save_col = st.columns([1, 2])
+    total_col.metric("Active weight total", f"{total:g}%", delta="Ready" if abs(total - 100) < .01 else "Adjust to 100%")
+    with save_col:
+        if st.button("Save scoring rules", type="primary", use_container_width=True):
             db.save_criteria(edited_rows)
             st.success("Saved. These rules will be used for the next evaluation.")
             st.rerun()
+    with st.expander("View the weight distribution"):
+        st.caption("Each active criterion contributes this share of the final supplier score.")
+        active_rows = [row for row in edited_rows if row["is_active"]]
+        weight_cols = st.columns(3)
+        for index, row in enumerate(active_rows):
+            with weight_cols[index % 3]:
+                weight = max(0.0, min(100.0, float(row["weight"])))
+                st.markdown(f"**{row['name']}** · {weight:g}%")
+                st.progress(weight / 100)
 
 with input_tab:
     input_intro, input_photo = st.columns([1.5, .8], gap="large")
