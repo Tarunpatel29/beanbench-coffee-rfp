@@ -19,11 +19,32 @@ SAMPLE_DIR = ROOT / "data" / "sample_proposals"
 st.set_page_config(page_title="BeanBench · Supplier Review", page_icon="☕", layout="wide")
 st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@500;600;700&display=swap');
-.stApp{background:#f7f4ee;color:#263b32;font-family:'DM Sans',sans-serif}
-h1,h2,h3{font-family:'Fraunces',serif;color:#234337}
-[data-testid='stMetric']{background:#fff;border:1px solid #e6dfd2;padding:16px;border-radius:14px}
-.stButton>button{background:#28634c;color:#fff;border-radius:10px;border:0;font-weight:600}
-[data-testid='stTabs'] button{color:#28634c}
+.stApp{background:#f5f7f9;color:#2d3a45;font-family:'DM Sans',sans-serif}
+h1,h2,h3{font-family:'Fraunces',serif;color:#283f55}
+[data-testid='stHeader']{background:rgba(245,247,249,.9)}
+[data-testid='stSidebar']{background:linear-gradient(180deg,#233b53 0%,#344f68 100%)}
+[data-testid='stSidebar'] [data-testid='stMarkdownContainer'],[data-testid='stSidebar'] label,[data-testid='stSidebar'] h1,[data-testid='stSidebar'] h2,[data-testid='stSidebar'] h3,[data-testid='stSidebar'] p{color:#f4f2ed!important}
+[data-testid='stSidebar'] [data-testid='stCaptionContainer']{color:#cbd6df!important}
+[data-testid='stMetric']{background:#fff;border:1px solid #dfe6ec;padding:16px;border-radius:16px;box-shadow:0 5px 18px rgba(35,59,83,.05)}
+[data-testid='stMetricLabel']{color:#687783}
+.stButton>button{background:#607d98;color:#fff;border-radius:11px;border:0;font-weight:700;transition:all .18s ease}
+.stButton>button:hover{background:#49667f;border:0;transform:translateY(-1px)}
+[data-testid='stTabs'] button{color:#536f88;font-weight:600}
+[data-testid='stTabs'] [aria-selected='true']{border-bottom-color:#927d91!important}
+[data-testid='stDataFrame'],[data-testid='stDataEditor']{border:1px solid #dfe6ec;border-radius:14px;overflow:hidden}
+[data-testid='stImage'] img{border-radius:22px;height:245px;object-fit:cover;object-position:82% center}
+.bb-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#263f56 0%,#536a80 100%);border:1px solid rgba(255,255,255,.22);border-radius:26px;padding:30px 34px 26px;margin:12px 0 18px;color:#fff;box-shadow:0 16px 34px rgba(35,59,83,.13);min-height:245px;display:flex;flex-direction:column;justify-content:center}
+.bb-hero:after{content:'';position:absolute;width:300px;height:300px;border:1px solid rgba(255,255,255,.1);border-radius:50%;right:-130px;top:-175px;box-shadow:0 0 0 28px rgba(255,255,255,.025),0 0 0 58px rgba(255,255,255,.02)}
+.bb-kicker{font-size:.76rem;letter-spacing:.16em;text-transform:uppercase;color:#d9c5b8;font-weight:700;margin-bottom:9px}
+.bb-title{font-family:'Fraunces',serif;font-size:clamp(2.25rem,4vw,3.25rem);line-height:1.05;font-weight:700;color:#fff;margin:0 0 8px}
+.bb-subtitle{font-size:1.03rem;color:#d9ebe4;margin:0;max-width:760px}
+.bb-badge{display:inline-block;margin-top:17px;margin-right:6px;padding:6px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.10);font-size:.78rem;color:#f4f2ed}
+.bb-step{min-height:82px;border:1px solid #dfe6ec;border-radius:15px;background:#fff;padding:12px 14px;box-shadow:0 4px 14px rgba(35,59,83,.04)}
+.bb-step.active{border-color:#a99bad;background:#f8f5f9}
+.bb-step.done{border-color:#c6d5df;background:#edf3f7}
+.bb-step-title{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:#74808a;font-weight:700}
+.bb-step-value{font-size:.95rem;color:#30485c;font-weight:700;margin-top:5px}
+.bb-section{border-bottom:1px solid #dfe6ec;padding-bottom:9px;margin-bottom:14px}
 </style>""", unsafe_allow_html=True)
 
 db.initialize_db()
@@ -55,6 +76,10 @@ def display_scorecard(supplier: dict) -> None:
     st.markdown(f"### {supplier['supplier_name']} · Rank {supplier['final_rank']}")
     st.write(supplier.get("overall_summary", ""))
     st.caption(f"Weighted score: **{supplier['absolute_score']}/100** · Peer Performance Index: **{supplier['ppi']}/100** · Rank reason: {supplier.get('tie_break_reason','')}")
+    st.markdown("#### Criterion score breakdown")
+    criterion_rows = [{"Criterion": row["name"], "Score": row["score"]} for row in supplier["criteria"]]
+    st.bar_chart(criterion_rows, x="Criterion", y="Score", horizontal=True,
+                 color="#927d91", height=290, x_label="Score")
     columns = ["name", "score", "max_score", "weight", "weighted_points", "benchmark", "gap", "relative_percent", "evidence_verified"]
     st.dataframe([{key: row.get(key) for key in columns} for row in supplier["criteria"]], hide_index=True, use_container_width=True)
     for criterion in supplier["criteria"]:
@@ -67,7 +92,7 @@ def display_scorecard(supplier: dict) -> None:
             document_text = st.session_state.get("beanbench_document_texts", {}).get(supplier["supplier_name"], "")
             passages = retrieve_evidence(document_text, criterion["name"] + " " + criterion.get("description", ""), 3)
             if passages:
-                with st.expander("Find related proposal passages (RAG-style)"):
+                with st.expander("Find related proposal passages"):
                     for passage in passages:
                         st.write("> " + passage)
             elif not document_text:
@@ -76,11 +101,45 @@ def display_scorecard(supplier: dict) -> None:
         st.warning("Risks or missing details: " + "; ".join(supplier["risks"]))
 
 
-st.title("☕ BeanBench")
-st.caption("Coffee supplier proposals, reviewed with evidence · fictional classroom data · human-reviewed decisions")
+current_run = st.session_state.get("beanbench_current_run")
+active_criteria = db.get_criteria(active_only=True)
+active_weight_total = sum(float(item["weight"]) for item in active_criteria)
+sample_count = len(list(SAMPLE_DIR.glob("*.pdf")))
+has_run = bool(current_run)
+hero_copy, hero_photo = st.columns([1.25, 1], gap="small")
+with hero_copy:
+    st.markdown("""
+<section class="bb-hero">
+  <div class="bb-kicker">BeanBench · Coffee Supplier Review</div>
+  <div class="bb-title">A clearer way to compare suppliers.</div>
+  <p class="bb-subtitle">Review coffee proposals against consistent criteria, trace every score to evidence, and keep the final decision in human hands.</p>
+  <span class="bb-badge">☕ Sample proposal set</span>
+  <span class="bb-badge">⌕ Evidence-led review</span>
+  <span class="bb-badge">✓ Human-reviewed decisions</span>
+</section>
+""", unsafe_allow_html=True)
+with hero_photo:
+    st.image(str(ROOT / "assets" / "coffee-roastery-hero.png"), caption="Coffee cupping · supplier quality review", use_container_width=True)
+
+criteria_ready = abs(active_weight_total - 100) < .01
+journey = [
+    ("01 · Criteria", "Weights set" if criteria_ready else "Review weights", criteria_ready),
+    ("02 · Proposals", f"{sample_count} sample proposals ready" if not has_run else "Proposals reviewed", has_run),
+    ("03 · Evaluation", "Completed" if has_run else "Ready when you are", has_run),
+    ("04 · Decision", "Review the evidence" if has_run else "Pending evaluation", has_run),
+]
+journey_cols = st.columns(4)
+for index, (label, value, complete) in enumerate(journey):
+    style = "done" if complete else ("active" if index == (3 if has_run else 1) else "")
+    journey_cols[index].markdown(
+        f'<div class="bb-step {style}"><div class="bb-step-title">{label}</div><div class="bb-step-value">{"✓ " if complete else ""}{value}</div></div>',
+        unsafe_allow_html=True,
+    )
+st.write("")
 
 with st.sidebar:
-    st.header("AI settings")
+    st.markdown("### ⚙️ Review settings")
+    st.caption("Choose how proposal scorecards are drafted.")
     provider = st.selectbox("Who should draft the scorecards?", ["Offline demo", "OpenAI", "Anthropic", "Gemini"])
     key_names = {"OpenAI": "OPENAI_API_KEY", "Anthropic": "ANTHROPIC_API_KEY", "Gemini": "GEMINI_API_KEY"}
     model_defaults = {"OpenAI": "gpt-4o-mini", "Anthropic": "claude-3-5-haiku-latest", "Gemini": "gemini-2.0-flash"}
@@ -95,7 +154,7 @@ with st.sidebar:
         if not api_key:
             st.info("Add your own key to use AI, or choose Offline demo. Offline mode needs no account or payment.")
     st.divider()
-    st.caption("The AI reviews proposal wording. Python checks scores and makes the final calculations and ranking.")
+    st.caption("The language model drafts scorecards. Python verifies evidence, calculates weighted scores, and ranks suppliers.")
 
 criteria_tab, input_tab, leaderboard_tab, scorecards_tab, details_tab, history_tab = st.tabs([
     "⚖️ Criteria", "📄 Suppliers & Evaluate", "🏆 Leaderboard", "🧾 Scorecards", "🔍 Run details", "🕓 History"
@@ -103,32 +162,50 @@ criteria_tab, input_tab, leaderboard_tab, scorecards_tab, details_tab, history_t
 
 with criteria_tab:
     st.subheader("Scoring criteria")
-    st.write("Change what matters to your coffee buying team. Active weights must add up to 100% before evaluation.")
+    st.write("Set the buying team's priorities. Active weights must add up to 100% before a fair comparison can run.")
     criteria = db.get_criteria()
-    editor = st.data_editor(criteria, hide_index=True, use_container_width=True,
-                            disabled=["criterion_id", "name"],
-                            column_config={
-                                "criterion_id": st.column_config.NumberColumn("ID", width="small"),
-                                "name": st.column_config.TextColumn("Criterion", width="medium"),
-                                "description": st.column_config.TextColumn("What to look for", width="large"),
-                                "weight": st.column_config.NumberColumn("Weight (%)", min_value=0, max_value=100, step=1),
-                                "max_score": st.column_config.NumberColumn("Max score", min_value=1, max_value=100, step=1),
-                                "is_active": st.column_config.CheckboxColumn("Active"),
-                            })
+    rules_column, mix_column = st.columns([1.8, 1], gap="large")
+    with rules_column:
+        editor = st.data_editor(criteria, hide_index=True, use_container_width=True,
+                                disabled=["criterion_id", "name"],
+                                column_config={
+                                    "criterion_id": st.column_config.NumberColumn("ID", width="small"),
+                                    "name": st.column_config.TextColumn("Criterion", width="medium"),
+                                    "description": st.column_config.TextColumn("What to look for", width="large"),
+                                    "weight": st.column_config.NumberColumn("Weight (%)", min_value=0, max_value=100, step=1),
+                                    "max_score": st.column_config.NumberColumn("Max score", min_value=1, max_value=100, step=1),
+                                    "is_active": st.column_config.CheckboxColumn("Active"),
+                                })
     edited_rows = editor.to_dict("records") if hasattr(editor, "to_dict") else editor
     total = sum(float(row["weight"]) for row in edited_rows if row["is_active"])
-    st.metric("Active weight total", f"{total:g}%", delta="Ready" if abs(total - 100) < .01 else "Adjust to 100%")
-    if st.button("Save scoring rules"):
-        db.save_criteria(edited_rows)
-        st.success("Saved. These rules will be used for the next evaluation.")
-        st.rerun()
+    with mix_column:
+        st.markdown("#### Weight mix")
+        st.caption("How much each active priority contributes to the final score.")
+        for row in edited_rows:
+            if row["is_active"]:
+                weight = max(0.0, min(100.0, float(row["weight"])))
+                name_col, value_col = st.columns([4, 1])
+                name_col.caption(row["name"])
+                value_col.caption(f"{weight:g}%")
+                st.progress(weight / 100)
+        st.metric("Active weight total", f"{total:g}%", delta="Ready" if abs(total - 100) < .01 else "Adjust to 100%")
+    with rules_column:
+        if st.button("Save scoring rules"):
+            db.save_criteria(edited_rows)
+            st.success("Saved. These rules will be used for the next evaluation.")
+            st.rerun()
 
 with input_tab:
-    st.subheader("Bring in proposals")
-    mode = st.radio("Where should the proposals come from?", ["Use the included coffee examples", "Upload my own PDFs"], horizontal=True)
-    if mode == "Use the included coffee examples":
+    input_intro, input_photo = st.columns([1.5, .8], gap="large")
+    with input_intro:
+        st.subheader("Supplier proposals")
+        st.caption("Compare vendor offers against the same criteria, then review the evidence behind every score.")
+        mode = st.radio("Proposal source", ["Use the included sample proposals", "Upload my own PDFs"], horizontal=True)
+    with input_photo:
+        st.image(str(ROOT / "assets" / "coffee-quality-review.png"), caption="Green coffee quality inspection", use_container_width=True)
+    if mode == "Use the included sample proposals":
         examples = sample_files()
-        st.info(f"Ready to use {len(examples)} fictional supplier proposals. Each has a different strength and weakness.")
+        st.info(f"{len(examples)} sample supplier proposals are ready for evaluation. Compare their strengths across the criteria below.")
         st.dataframe([{"Supplier": x["supplier_name"], "PDF": x["file_name"], "Date submitted": x["submission_date"], "Experience / 5": x["experience_rating"]} for x in examples], hide_index=True, use_container_width=True)
         suppliers = examples
     else:
@@ -188,6 +265,17 @@ with leaderboard_tab:
     else:
         st.subheader("The supplier leaderboard")
         st.caption(f"Run: `{result['rfp_run_id']}` · ranking uses validated scores and the tie-break rules in your brief.")
+        leaders = result["suppliers"]
+        if leaders:
+            top = leaders[0]
+            metric_cols = st.columns(3)
+            metric_cols[0].metric("Suppliers reviewed", len(leaders))
+            metric_cols[1].metric("Top-ranked supplier", top["supplier_name"])
+            metric_cols[2].metric("Leading weighted score", f"{top['absolute_score']}/100")
+            st.markdown("#### Overall supplier comparison")
+            chart_rows = [{"Supplier": row["supplier_name"], "Weighted score": row["absolute_score"]} for row in leaders]
+            st.bar_chart(chart_rows, x="Supplier", y="Weighted score", horizontal=True,
+                         color="#607d98", height=250, x_label="Score out of 100")
         st.dataframe([{"Rank": row["final_rank"], "Supplier": row["supplier_name"],
                        "Weighted score / 100": row["absolute_score"], "PPI / 100": row["ppi"],
                        "Submitted": row["submission_date"], "Experience / 5": row["experience_rating"],
@@ -201,7 +289,8 @@ with scorecards_tab:
         st.info("Supplier scorecards appear after an evaluation.")
     elif result["suppliers"]:
         selected = st.selectbox("Choose a supplier", [row["supplier_name"] for row in result["suppliers"]])
-        display_scorecard(next(row for row in result["suppliers"] if row["supplier_name"] == selected))
+        selected_supplier = next(row for row in result["suppliers"] if row["supplier_name"] == selected)
+        display_scorecard(selected_supplier)
     else:
         st.warning("No supplier had a complete scorecard to display.")
 
