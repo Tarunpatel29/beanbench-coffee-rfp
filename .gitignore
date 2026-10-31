@@ -1,0 +1,11 @@
+__pycache__/
+.venv/
+beanbench.db
+*.db
+*.zip
+.streamlit/secrets.toml
+.env
+*.pyc
+.DS_Store
+outputs/
+work/
